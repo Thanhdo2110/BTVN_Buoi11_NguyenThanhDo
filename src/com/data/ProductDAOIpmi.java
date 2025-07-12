@@ -9,7 +9,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-class ProductDAOImpi {
+public class ProductDAOIpmi {
     public List<Product> getListProduct() {
         Connection conn = null;
         List<Product> products = new ArrayList<>();
@@ -42,10 +42,9 @@ class ProductDAOImpi {
 
         try {
             conn = ConnectionDB.openConn();
-            CallableStatement callst = conn.prepareCall("CAll find_all_product");
-            //Statement st = conn.createStatement();
+            CallableStatement callst = conn.prepareCall("CALL find_all_product()");
 
-            ResultSet rs = callst.executeQuery("SELECT * FROM product");
+            ResultSet rs = callst.executeQuery();
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String productName = rs.getString("product_name");
@@ -65,9 +64,14 @@ class ProductDAOImpi {
 
     public void show(List<Product> products) {
         System.out.println("==== Danh sách sản phẩm ====");
+        if (products.isEmpty()) {
+            System.out.println("Không có sản phẩm nào.");
+            return;
+        }
 
         System.out.println("---------------------------------");
         System.out.println("|  Id  |  Product Name  |  Price  | Brand | Stock |");
+        System.out.println("---------------------------------");
         products.forEach(product -> {
             StringBuilder row = new StringBuilder();
             row.append("|  " + product.getId());
@@ -78,33 +82,37 @@ class ProductDAOImpi {
 
             System.out.println(row);
         });
+        System.out.println("---------------------------------");
     }
 
-    public int delete (int id) {
+    public int delete(int id) {
         Connection conn = null;
         int countAffect = 0;
         try {
             conn = ConnectionDB.openConn();
-            Statement st = conn.createStatement();
+            CallableStatement callSt = conn.prepareCall("{CALL delete_product(?)}");
+            callSt.setInt(1, id);
 
-            countAffect = st.executeUpdate("DELETE FROM product WHERE id = " + id);
+            countAffect = callSt.executeUpdate();
         } catch (Exception e) {
-            System.out.println("Lỗi lấy dữ liệu!");
+            System.out.println("Lỗi xóa dữ liệu!");
         }
         return countAffect;
     }
+
     public int insert(Product product) {
         Connection conn = null;
         int countAffect = 0;
         try {
             conn = ConnectionDB.openConn();
-            Statement st = conn.createStatement();
+            CallableStatement callSt = conn.prepareCall("{CALL insert_product(?, ?, ?, ?)}");
 
-            String sql = "INSERT INTO product (product_name, price, brand, stock) VALUES ('"
-                    + product.getProductName() + "', " + product.getPrice() + ", '"
-                    + product.getBrand() + "', " + product.getStock() + ")";
+            callSt.setString(1, product.getProductName());
+            callSt.setInt(2, product.getPrice());
+            callSt.setString(3, product.getBrand());
+            callSt.setInt(4, product.getStock());
 
-            countAffect = st.executeUpdate(sql);
+            countAffect = callSt.executeUpdate();
         } catch (Exception e) {
             System.out.println("Lỗi thêm dữ liệu!");
         }
@@ -116,13 +124,15 @@ class ProductDAOImpi {
         int countAffect = 0;
         try {
             conn = ConnectionDB.openConn();
-            Statement st = conn.createStatement();
+            CallableStatement callSt = conn.prepareCall("{CALL update_product(?, ?, ?, ?, ?)}");
 
-            String sql = "UPDATE product SET product_name = '" + product.getProductName()
-                    + "', price = " + product.getPrice() + ", brand = '" + product.getBrand()
-                    + "', stock = " + product.getStock() + " WHERE id = " + product.getId();
+            callSt.setInt(1, product.getId());
+            callSt.setString(2, product.getProductName());
+            callSt.setInt(3, product.getPrice());
+            callSt.setString(4, product.getBrand());
+            callSt.setInt(5, product.getStock());
 
-            countAffect = st.executeUpdate(sql);
+            countAffect = callSt.executeUpdate();
         } catch (Exception e) {
             System.out.println("Lỗi cập nhật dữ liệu!");
         }
@@ -149,5 +159,77 @@ class ProductDAOImpi {
             System.out.println("Lỗi tìm dữ liệu!");
         }
         return product;
+    }
+
+    public List<Product> findByBrand(String brandKeyword) {
+        Connection conn = null;
+        List<Product> products = new ArrayList<>();
+        try {
+            conn = ConnectionDB.openConn();
+            Statement st = conn.createStatement();
+
+            ResultSet rs = st.executeQuery("SELECT * FROM product WHERE brand LIKE '%" + brandKeyword + "%'");
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String productName = rs.getString("product_name");
+                int price = rs.getInt("price");
+                String brand = rs.getString("brand");
+                int stock = rs.getInt("stock");
+
+                Product product = new Product(id, productName, price, brand, stock);
+                products.add(product);
+            }
+        } catch (Exception e) {
+            System.out.println("Lỗi tìm kiếm theo brand!");
+        }
+        return products;
+    }
+
+    public List<Product> findByPriceRange(int minPrice, int maxPrice) {
+        Connection conn = null;
+        List<Product> products = new ArrayList<>();
+        try {
+            conn = ConnectionDB.openConn();
+            Statement st = conn.createStatement();
+
+            ResultSet rs = st.executeQuery("SELECT * FROM product WHERE price BETWEEN " + minPrice + " AND " + maxPrice);
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String productName = rs.getString("product_name");
+                int price = rs.getInt("price");
+                String brand = rs.getString("brand");
+                int stock = rs.getInt("stock");
+
+                Product product = new Product(id, productName, price, brand, stock);
+                products.add(product);
+            }
+        } catch (Exception e) {
+            System.out.println("Lỗi tìm kiếm theo khoảng giá!");
+        }
+        return products;
+    }
+
+    public List<Product> findByStock(int stockThreshold) {
+        Connection conn = null;
+        List<Product> products = new ArrayList<>();
+        try {
+            conn = ConnectionDB.openConn();
+            Statement st = conn.createStatement();
+
+            ResultSet rs = st.executeQuery("SELECT * FROM product WHERE stock >= " + stockThreshold);
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String productName = rs.getString("product_name");
+                int price = rs.getInt("price");
+                String brand = rs.getString("brand");
+                int stock = rs.getInt("stock");
+
+                Product product = new Product(id, productName, price, brand, stock);
+                products.add(product);
+            }
+        } catch (Exception e) {
+            System.out.println("Lỗi tìm kiếm theo tồn kho!");
+        }
+        return products;
     }
 }
